@@ -1,0 +1,117 @@
+---
+title: "Computation of regional development index"
+author: "Martin Požar"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Computation of regional development index}
+  %\VignetteEngine{knitr::rmarkdown}
+  \VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+# Computation of regional development index
+
+Computation of regional development index using package `crodi` has two basic steps:
+
+* Normalization of indicators using function `normalize()`.
+* Computation of composite index using function `devindex()`.
+
+This example illustrates two methods which were used for computation of Croatian regional development index in years 2017 and 2013, some other variants and convenience functions.
+
+First, load functions and data provided by this package:
+
+```{r}
+library("crodi")
+data(crodi2017)
+data(crodi2013)
+```
+
+
+
+
+## Method from 2017
+
+### Normalization of indicator values
+
+Normalization of indicators is done by standardization of original indicator values to z-score values with mean of 100 and standard deviation of 10. Direction of values is reversed where appropriate.
+
+```{r}
+crodi2017$sinc <- normalize(crodi2017$inc)
+crodi2017$srev <- normalize(crodi2017$rev)
+crodi2017$semp <- normalize(crodi2017$emp, reverse = TRUE)
+crodi2017$sedu <- normalize(crodi2017$edu)
+crodi2017$spop <- normalize(crodi2017$pop)
+crodi2017$sagi <- normalize(crodi2017$agi, reverse = TRUE)
+```
+
+### Calculation of penalised composite index
+
+Computation of composite index is based on Mazziotta-Pareto method which features penalization of index values dependent on variability of indicator values. Function `devindex()` applies penalization by default.
+
+```{r}
+crodi2017$di.calc <- devindex(~ sinc + srev + semp + sedu + spop + sagi, crodi2017)
+head(crodi2017[c("di","di.calc")])
+```
+
+## Method from 2013
+
+### Normalization of indicator values
+
+In this method, normalization of indicators requires reference values. These are provided (for year 2013) in this package.
+
+```{r}
+data(refval2013)
+```
+
+Normalization of indicator values is done using modified Min-Max method. To use it, set `method = "mms"` and specify appropriate reference value for each indicator. Direction of values is reversed where appropriate.
+
+```{r}
+crodi2013$sinc <- normalize(crodi2013$inc, method = "mms", refval = refval2013$inc)
+crodi2013$srev <- normalize(crodi2013$rev, method = "mms", refval = refval2013$rev)
+crodi2013$semp <- normalize(crodi2013$emp, method = "mms", refval = refval2013$emp, reverse = TRUE)
+crodi2013$sedu <- normalize(crodi2013$edu, method = "mms", refval = refval2013$edu)
+crodi2013$spop <- normalize(crodi2013$pop, method = "mms", refval = refval2013$pop)
+```
+
+### Calculation of weighted composite index
+
+To calculate weighted composite index specify indicator weights as a named list.
+
+```{r}
+indicator.weights <- list(sinc = .25, srev = .15, semp = .3, sedu = .15, spop =.15)
+```
+
+These indicator weights are input to `devindex()` function. Argument `penalize` is set to `FALSE` as penalization is not used and argument `aggregate` is set to `"sum"` as weighted indicator values are summed, not averaged.
+
+```{r}
+crodi2013$di.calc <- devindex(~ sinc + srev + semp + sedu + spop, crodi2013, penalize = FALSE, wts = indicator.weights, aggregate = "sum")
+head(crodi2013[c("di","di.calc")])
+```
+
+Please note that in year 2013 regional development index for a specific group of local administrative units was further corrected, which is not covered here.
+
+## Other variants
+
+By setting both `wts` and `penalize = TRUE`, weighted composite index that is further penalized can be calculated. Note that in the case of weighted indicators penalty depends on unbalance in weighted values.
+
+```{r}
+crodi2013$di.calc.pen <- devindex(~ sinc + srev + semp + sedu + spop, crodi2013, penalize = TRUE, wts = indicator.weights, aggregate = "sum")
+head(crodi2013[c("di","di.calc","di.calc.pen")])
+```
+
+## Penalization
+
+Function `penalize()` will output penalty as defined in Mazziotta-Pareto method. Input is a data frame with normalized indicators.
+
+```{r}
+pen <- penalize(crodi2017[c("sinc", "srev", "semp", "sedu", "spop", "sagi")])
+head(pen)
+```
